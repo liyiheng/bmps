@@ -1,0 +1,20 @@
+syntax = "proto3";
+package bg;
+
+message GenRequest {
+  uint32 width = 1;
+  uint32 height = 2;
+  uint32 blur_radius = 3;
+  uint32 round_radius = 4;
+  // [0,0.5)
+  double padding = 5;
+  uint32 shadow = 6;
+
+  string source = 7;
+  string dest = 8;
+}
+
+message GenResponse {
+  int32 code = 1;
+  string msg = 2;
+}
