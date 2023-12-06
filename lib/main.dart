@@ -30,6 +30,11 @@ class ValNotifier<T> extends ChangeNotifier {
 final orientationProvider = ChangeNotifierProvider<ValNotifier<Orientation>>(
     (ref) => ValNotifier<Orientation>(Orientation.landscape));
 
+final originPathProvider = ChangeNotifierProvider<ValNotifier<String>>(
+    (ref) => ValNotifier<String>(''));
+final destPathProvider = ChangeNotifierProvider<ValNotifier<String>>(
+    (ref) => ValNotifier<String>(''));
+
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
@@ -65,12 +70,12 @@ typedef OnPickImageCallback = void Function(
 
 class _MyHomePageState extends ConsumerState<MyHomePage> {
   final ImagePicker _picker = ImagePicker();
-  String _originPath = '';
   String _destPath = '';
 
   @override
   Widget build(BuildContext context) {
     var orien = ref.watch(orientationProvider).val;
+    var originPath = ref.watch(originPathProvider).val;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -79,19 +84,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: <Widget>[
-          if (_originPath.isNotEmpty) ...[
-            SizedBox(
-              height: 200,
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Image.file(
-                  File(_originPath),
-                  fit: BoxFit.scaleDown,
-                  height: 200,
-                ),
-              ),
-            ),
-          ],
+          ResultImage(),
           ListTile(
             title: const Text('横屏'),
             trailing: const Icon(Icons.crop_landscape),
@@ -126,16 +119,14 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
               if (file == null) {
                 return;
               }
-              setState(() {
-                _originPath = file.path;
-              });
+              ref.read(originPathProvider).set(file.path);
             },
             heroTag: 'image0',
             tooltip: 'Pick Image from gallery',
             child: const Icon(Icons.photo),
           ),
-          Text(_originPath),
-          if (_originPath.isNotEmpty) ...[
+          Text(originPath),
+          if (originPath.isNotEmpty) ...[
             SizedBox(
               height: 100,
               child: FractionallySizedBox(
@@ -148,7 +139,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                       Padding(
                         padding: const EdgeInsets.all(54),
                         child: Image.file(
-                          File(_originPath),
+                          File(originPath),
                           fit: BoxFit.scaleDown,
                           height: 300,
                         ),
@@ -161,7 +152,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
           ],
           ElevatedButton(
               onPressed: () async {
-                if (_originPath.isEmpty) {
+                if (originPath.isEmpty) {
                   print('path is empty, skip');
                   return;
                 }
@@ -170,11 +161,11 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                   (width, height) = (height, width);
                 }
                 print('width: $width, height:$height');
-                var fname = path.basename(_originPath);
-                var dir = path.dirname(_originPath);
+                var fname = path.basename(originPath);
+                var dir = path.dirname(originPath);
                 var dest = path.join(dir, 'bmps_$fname');
                 var req = bg.GenRequest(
-                    source: _originPath,
+                    source: originPath,
                     dest: dest,
                     width: width,
                     height: height,
@@ -206,6 +197,55 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
           ]
         ],
       ),
+    );
+  }
+}
+
+class ResultImage extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<ConsumerStatefulWidget> createState() {
+    return ResultImageState();
+  }
+}
+
+class ResultImageState extends ConsumerState {
+  double blurRadius = 5.0;
+
+  @override
+  Widget build(BuildContext context) {
+    var originPath = ref.watch(originPathProvider).val;
+    if (originPath.isEmpty) {
+      return Container(
+        height: 200,
+        color: Colors.grey,
+      );
+    }
+    return Column(
+      children: [
+        SizedBox(
+          height: 200,
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(
+                sigmaX: blurRadius,
+                sigmaY: blurRadius,
+                tileMode: TileMode.decal),
+            child: Image.file(
+              File(originPath),
+              fit: BoxFit.cover,
+              height: 200,
+            ),
+          ),
+        ),
+        Slider(
+          value: blurRadius,
+          onChanged: (v) {
+            setState(() {
+              blurRadius = v;
+            });
+          },
+          max: 100,
+        )
+      ],
     );
   }
 }
