@@ -1,5 +1,5 @@
 pub use config::Config;
-use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Rgba};
+use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Rgb, Rgba};
 use std::{sync::OnceLock, time::Instant};
 
 pub mod config;
@@ -109,10 +109,42 @@ pub fn font_families() -> Vec<String> {
     });
     res.clone()
 }
+// https://magnushoff.com/articles/jpeg-orientation/
+fn get_orientation(path: &str) -> anyhow::Result<u32> {
+    use exif::In;
+    use exif::Tag;
+    let file = std::fs::File::open(path)?;
+    let mut bufreader = std::io::BufReader::new(&file);
+    let exifreader = exif::Reader::new();
+    let exif = exifreader.read_from_container(&mut bufreader)?;
+    match exif.get_field(Tag::Orientation, In::PRIMARY) {
+        Some(orientation) => match orientation.value.get_uint(0) {
+            Some(v @ 1..=8) => Ok(v),
+            _ => Err(anyhow::Error::msg("orientation invalid")),
+        },
+        None => Err(anyhow::Error::msg("orientation missing")),
+    }
+}
 
 pub fn go(cfg: Config) -> anyhow::Result<()> {
-    let img = image::open(cfg.source_file.as_str())?;
-    let mut bg_img = img.resize_to_fill(cfg.size.width, cfg.size.height, FilterType::Nearest);
+    let mut img = image::open(cfg.source_file.as_str())?;
+    match get_orientation(&cfg.source_file) {
+        Ok(v) => {
+            if v == 8 {
+                img = img.rotate270();
+            }
+        }
+        _ => {}
+    };
+    let mut bg_img = if cfg.white_bg {
+        DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+            cfg.size.width,
+            cfg.size.height,
+            image::Rgb([255, 255, 255]),
+        ))
+    } else {
+        img.resize_to_fill(cfg.size.width, cfg.size.height, FilterType::Nearest)
+    };
     let r = 1.0 - cfg.size.padding * 2.0;
     let width = bg_img.width() as f64 * r;
     let height = bg_img.height() as f64 * r;
@@ -145,6 +177,7 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
         for y in 0..img.height() {
             let mut p = img.get_pixel(x, y);
             if p.0[..3] == [255, 255, 255] || p.0[3] == 0 {
+                // FIXME: 过曝时会跳过，此处应根据圆角范围判断
                 continue;
             }
             p.0[3] = 255;
@@ -185,6 +218,7 @@ mod tests {
             dest_file: "./output_p.jpg".to_owned(),
             font: None,
             size: Default::default(),
+            white_bg: false,
         };
         go(cfg.clone()).unwrap();
         std::mem::swap(&mut cfg.size.width, &mut cfg.size.height);

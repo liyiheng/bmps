@@ -4,6 +4,7 @@ pub struct Config {
     pub dest_file: String,
     pub font: Option<String>,
     pub size: Size,
+    pub white_bg: bool,
 }
 
 #[derive(Clone, Debug)]

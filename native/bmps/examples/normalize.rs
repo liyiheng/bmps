@@ -45,6 +45,7 @@ fn main() {
         )
         .arg(arg!(-i --input [INPUT_PATH] "File or directory path").default_value("."))
         .arg(arg!(-o --out [OUTPUT] "Output path").default_value("."))
+        .arg(arg!(-w --white  "White background").value_parser(clap::value_parser!(bool)))
         .get_matches();
     let cfg = Config {
         font: None,
@@ -58,6 +59,7 @@ fn main() {
         },
         source_file: get(&matches, "input"),
         dest_file: get(&matches, "out"),
+        white_bg: get(&matches, "white"),
     };
     if is_dir(cfg.source_file.as_str()) {
         batch(&cfg);
