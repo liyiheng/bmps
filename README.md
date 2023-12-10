@@ -1,5 +1,7 @@
 # bmps
 
+Heavily inspired by [yiyin](https://github.com/ggchivalrous/yiyin)
+
 Big musules, passionate shots
 
 ## CLI version
