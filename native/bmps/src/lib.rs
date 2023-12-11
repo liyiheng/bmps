@@ -1,32 +1,69 @@
 pub use config::Config;
-use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Rgb, Rgba};
-use std::{sync::OnceLock, time::Instant};
+use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Rgba};
+use std::{path::Path, sync::OnceLock, time::Instant};
 
 pub mod config;
 pub use log;
 
 pub fn round_img(origin: String, output: String, radius: u32) -> anyhow::Result<()> {
-    let mut img = image::open(origin)?;
+    let mut img = open_img(origin)?;
     round(radius, &mut img);
     img.save(output)?;
     Ok(())
 }
+struct RoundChecker {
+    width: u32,
+    height: u32,
+    radius: u32,
+}
+
+fn dist(p1: (u32, u32), p2: (u32, u32)) -> u32 {
+    let a = if p1.0 > p2.0 {
+        p1.0 - p2.0
+    } else {
+        p2.0 - p1.0
+    };
+    let b = if p1.1 > p2.1 {
+        p1.1 - p2.1
+    } else {
+        p2.1 - p1.1
+    };
+    a * a + b * b
+}
+impl RoundChecker {
+    fn new(radius: u32, width: u32, height: u32) -> Self {
+        RoundChecker {
+            width,
+            height,
+            radius,
+        }
+    }
+    fn contains(&self, x: u32, y: u32) -> bool {
+        let radius = self.radius;
+        if x >= radius && x <= self.width - radius {
+            return true;
+        }
+        if y >= radius && y <= self.height - radius {
+            return true;
+        }
+        let squre = radius * radius;
+        let positions = [
+            (radius, radius),
+            (self.width - radius, radius),
+            (radius, self.height - radius),
+            (self.width - radius, self.height - radius),
+        ];
+        for pos in positions {
+            if dist(pos, (x, y)) <= squre {
+                return true;
+            }
+        }
+        false
+    }
+}
 
 fn round(radius: u32, img: &mut DynamicImage) {
     const EMPTY: Rgba<u8> = Rgba([255, 255, 255, 0]);
-    fn dist(p1: (u32, u32), p2: (u32, u32)) -> u32 {
-        let a = if p1.0 > p2.0 {
-            p1.0 - p2.0
-        } else {
-            p2.0 - p1.0
-        };
-        let b = if p1.1 > p2.1 {
-            p1.1 - p2.1
-        } else {
-            p2.1 - p1.1
-        };
-        a * a + b * b
-    }
     let width = img.width();
     let height = img.height();
     let squre = radius * radius;
@@ -92,7 +129,7 @@ fn blur(radius: f32, img: DynamicImage) -> DynamicImage {
 }
 
 pub fn blur_img(radius: f32, origin: String, out: String) -> anyhow::Result<()> {
-    let img = image::open(origin)?;
+    let img = open_img(origin)?;
     let bg = blur(radius, img);
     bg.save(out)?;
     Ok(())
@@ -110,7 +147,7 @@ pub fn font_families() -> Vec<String> {
     res.clone()
 }
 // https://magnushoff.com/articles/jpeg-orientation/
-fn get_orientation(path: &str) -> anyhow::Result<u32> {
+fn get_orientation<P: AsRef<Path>>(path: P) -> anyhow::Result<u32> {
     use exif::In;
     use exif::Tag;
     let file = std::fs::File::open(path)?;
@@ -125,17 +162,42 @@ fn get_orientation(path: &str) -> anyhow::Result<u32> {
         None => Err(anyhow::Error::msg("orientation missing")),
     }
 }
-
-pub fn go(cfg: Config) -> anyhow::Result<()> {
-    let mut img = image::open(cfg.source_file.as_str())?;
-    match get_orientation(&cfg.source_file) {
-        Ok(v) => {
-            if v == 8 {
+fn open_img<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<DynamicImage> {
+    let mut img = image::open(path.as_ref())?;
+    if let Ok(v) = get_orientation(path.as_ref()) {
+        match v {
+            1 => {} // noting to do
+            2 => {
+                img = img.fliph();
+            }
+            3 => {
+                img = img.rotate180();
+            }
+            4 => {
+                img = img.flipv();
+            }
+            5 => {
+                img = img.rotate90();
+                img = img.fliph();
+            }
+            6 => {
+                img = img.rotate90();
+            }
+            7 => {
+                img = img.flipv();
                 img = img.rotate270();
             }
+            8 => {
+                img = img.rotate270();
+            }
+            _ => {}
         }
-        _ => {}
-    };
+    }
+    Ok(img)
+}
+
+pub fn go(cfg: Config) -> anyhow::Result<()> {
+    let img = open_img(cfg.source_file.as_str())?;
     let mut bg_img = if cfg.white_bg {
         DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
             cfg.size.width,
@@ -148,7 +210,7 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     let r = 1.0 - cfg.size.padding * 2.0;
     let width = bg_img.width() as f64 * r;
     let height = bg_img.height() as f64 * r;
-    let mut img = img.resize(width as u32, height as u32, FilterType::Nearest);
+    let img = img.resize(width as u32, height as u32, FilterType::Nearest);
     let dist_v = (bg_img.height() - img.height()) / 2;
     let dist_h = (bg_img.width() - img.width()) / 2;
     //  draw shadow
@@ -171,15 +233,14 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     );
 
     let mut bg_img = blur(cfg.size.blur_radius as f32, bg_img);
+    let checker = RoundChecker::new(cfg.size.blur_radius, img.width(), img.height());
     // draw main content
-    round(cfg.size.round_radius, &mut img);
     for x in 0..img.width() {
         for y in 0..img.height() {
-            let mut p = img.get_pixel(x, y);
-            if p.0[..3] == [255, 255, 255] || p.0[3] == 0 {
-                // FIXME: 过曝时会跳过，此处应根据圆角范围判断
+            if !checker.contains(x, y) {
                 continue;
             }
+            let mut p = img.get_pixel(x, y);
             p.0[3] = 255;
             bg_img.put_pixel(x + dist_h, y + dist_v, p);
         }
