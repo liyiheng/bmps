@@ -1,121 +1,16 @@
 pub use config::Config;
-use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Rgba};
+use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 use std::{path::Path, sync::OnceLock, time::Instant};
 
-pub mod box_shadow;
 pub mod config;
+pub mod effects;
 pub use log;
 
 pub fn round_img(origin: String, output: String, radius: u32) -> anyhow::Result<()> {
     let mut img = open_img(origin)?;
-    round(radius, &mut img);
+    effects::round::apply(&mut img, radius);
     img.save(output)?;
     Ok(())
-}
-struct RoundChecker {
-    width: u32,
-    height: u32,
-    radius: u32,
-}
-
-fn dist(p1: (u32, u32), p2: (u32, u32)) -> u32 {
-    let a = if p1.0 > p2.0 {
-        p1.0 - p2.0
-    } else {
-        p2.0 - p1.0
-    };
-    let b = if p1.1 > p2.1 {
-        p1.1 - p2.1
-    } else {
-        p2.1 - p1.1
-    };
-    a * a + b * b
-}
-impl RoundChecker {
-    fn new(radius: u32, width: u32, height: u32) -> Self {
-        RoundChecker {
-            width,
-            height,
-            radius,
-        }
-    }
-    fn contains(&self, x: u32, y: u32) -> bool {
-        let radius = self.radius;
-        if x >= radius && x <= self.width - radius {
-            return true;
-        }
-        if y >= radius && y <= self.height - radius {
-            return true;
-        }
-        let squre = radius * radius;
-        let positions = [
-            (radius, radius),
-            (self.width - radius, radius),
-            (radius, self.height - radius),
-            (self.width - radius, self.height - radius),
-        ];
-        for pos in positions {
-            if dist(pos, (x, y)) <= squre {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-fn round(radius: u32, img: &mut DynamicImage) {
-    const EMPTY: Rgba<u8> = Rgba([255, 255, 255, 0]);
-    let width = img.width();
-    let height = img.height();
-    let squre = radius * radius;
-    let pos = (radius, radius);
-    for x in 0..radius {
-        for y in 0..radius {
-            let tmp = dist(pos, (x, y));
-            if tmp >= squre {
-                img.put_pixel(x, y, EMPTY);
-            }
-            if tmp <= squre {
-                break;
-            }
-        }
-    }
-    let pos = (width - radius, radius);
-    for x in ((width - radius)..width).rev() {
-        for y in 0..radius {
-            let tmp = dist(pos, (x, y));
-            if tmp >= squre {
-                img.put_pixel(x, y, EMPTY);
-            }
-            if tmp <= squre {
-                break;
-            }
-        }
-    }
-    let pos = (radius, height - radius);
-    for x in 0..radius {
-        for y in ((height - radius)..height).rev() {
-            let tmp = dist(pos, (x, y));
-            if tmp >= squre {
-                img.put_pixel(x, y, EMPTY);
-            }
-            if tmp <= squre {
-                break;
-            }
-        }
-    }
-    let pos = (width - radius, height - radius);
-    for x in (pos.0..width).rev() {
-        for y in (pos.1..height).rev() {
-            let tmp = dist(pos, (x, y));
-            if tmp >= squre {
-                img.put_pixel(x, y, EMPTY);
-            }
-            if tmp <= squre {
-                break;
-            }
-        }
-    }
 }
 
 fn blur(radius: f32, img: DynamicImage) -> DynamicImage {
@@ -215,13 +110,17 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     let dist_v = (bg_img.height() - img.height()) / 2;
     let dist_h = (bg_img.width() - img.width()) / 2;
     //  draw shadow
-    //  FIXME: https://html.spec.whatwg.org/multipage/canvas.html#when-shadows-are-drawn
-    //  FIXME: https://stackoverflow.com/questions/4151896/what-is-the-precise-explanation-of-box-shadow-and-moz-box-shadow-in-css
     let darker = |p: Rgba<u8>| {
         const D: u8 = 100;
         let d = p.0.map(|v| if v < D { 0 } else { v - D });
         Rgba(d)
     };
+    // let shadow = effects::shadow::Builder::new()
+    //     .offset(50, 50)
+    //     .blur_radius(cfg.size.shadow)
+    //     .color([255, 255, 255, 200])
+    //     .build();
+    // let (img, dx, dy) = shadow.apply(&img);
     let shadow = cfg.size.shadow;
     let draw_shadow_cost = Instant::now();
     for x in (dist_h - shadow)..(bg_img.width() - dist_h + shadow) {
@@ -236,16 +135,21 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     );
 
     let mut bg_img = blur(cfg.size.blur_radius as f32, bg_img);
-    let checker = RoundChecker::new(cfg.size.blur_radius, img.width(), img.height());
+    let checker = effects::round::Checker {
+        width: img.width(),
+        height: img.height(),
+        radius: cfg.size.blur_radius,
+    };
     // draw main content
     for x in 0..img.width() {
         for y in 0..img.height() {
             if !checker.contains(x, y) {
                 continue;
             }
-            let mut p = img.get_pixel(x, y);
-            p.0[3] = 255;
-            bg_img.put_pixel(x + dist_h, y + dist_v, p);
+            let f = img.get_pixel(x, y);
+            let mut b = bg_img.get_pixel(x + dist_h, y + dist_v);
+            b.blend(&f);
+            bg_img.put_pixel(x + dist_h, y + dist_v, b);
         }
     }
     if cfg.source_file == cfg.dest_file || cfg.dest_file.is_empty() {
@@ -299,7 +203,10 @@ mod tests {
         let s = Instant::now();
         let img = open_img("./hello.jpg").unwrap();
         let img = img.resize_to_fill(1920, 1080, FilterType::Nearest);
-        let (bg, dx, dy) = box_shadow::EffectBuilder::new()
+        let mut img = DynamicImage::ImageRgba8(img.to_rgba8());
+        effects::round::apply(&mut img, 40);
+
+        let (bg, dx, dy) = effects::shadow::Builder::new()
             .color([100, 100, 100, 255])
             .blur_radius(50)
             .offset(100, 100)
@@ -321,7 +228,7 @@ mod tests {
         for x in 0..img.width() {
             for y in 0..img.height() {
                 let p = img.get_pixel(x, y);
-                res.put_pixel(x + 100 + dx, y + 100 + dy, p);
+                res.get_pixel_mut(x + 100 + dx, y + 100 + dy).blend(&p);
             }
         }
         res.save("./output_shadow.png").unwrap();

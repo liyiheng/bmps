@@ -8,7 +8,7 @@ use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgb, RgbImage, Rgba
 // UNSURPPORTED inset: bool,
 // https://developer.mozilla.org/en-US/docs/Web/CSS/box-shadow#try_it
 #[derive(Debug, Clone)]
-pub struct Effects {
+pub struct Shadow {
     offset_x: i32,
     offset_y: i32,
     blur_radius: u32,
@@ -16,9 +16,9 @@ pub struct Effects {
     color: [u8; 4],
 }
 
-impl Default for Effects {
+impl Default for Shadow {
     fn default() -> Self {
-        Effects {
+        Shadow {
             offset_x: 10,
             offset_y: 10,
             blur_radius: 5,
@@ -28,33 +28,33 @@ impl Default for Effects {
 }
 
 #[derive(Default, Debug)]
-pub struct EffectBuilder {
-    effects: Effects,
+pub struct Builder {
+    inner: Shadow,
 }
-impl EffectBuilder {
-    pub fn new() -> EffectBuilder {
-        EffectBuilder {
-            effects: Default::default(),
+impl Builder {
+    pub fn new() -> Builder {
+        Builder {
+            inner: Default::default(),
         }
     }
-    pub fn offset(mut self, x: i32, y: i32) -> EffectBuilder {
-        self.effects.offset_x = x;
-        self.effects.offset_y = y;
+    pub fn offset(mut self, x: i32, y: i32) -> Builder {
+        self.inner.offset_x = x;
+        self.inner.offset_y = y;
         self
     }
-    pub fn blur_radius(mut self, r: u32) -> EffectBuilder {
-        self.effects.blur_radius = r;
+    pub fn blur_radius(mut self, r: u32) -> Builder {
+        self.inner.blur_radius = r;
         self
     }
-    pub fn color(mut self, rgba: [u8; 4]) -> EffectBuilder {
-        self.effects.color = rgba;
+    pub fn color(mut self, rgba: [u8; 4]) -> Builder {
+        self.inner.color = rgba;
         self
     }
-    pub fn build(self) -> Effects {
-        self.effects
+    pub fn build(self) -> Shadow {
+        self.inner
     }
 }
-impl Effects {
+impl Shadow {
     fn nop(&self) -> bool {
         self.color[3] == 0 || (self.blur_radius == 0 && self.offset_x == 0 && self.offset_y == 0)
     }
