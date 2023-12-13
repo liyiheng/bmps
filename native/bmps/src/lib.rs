@@ -1,5 +1,5 @@
 pub use config::Config;
-use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
+use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Pixel};
 use std::{path::Path, sync::OnceLock, time::Instant};
 
 pub mod config;
@@ -94,7 +94,7 @@ fn open_img<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<DynamicImage> 
 
 pub fn go(cfg: Config) -> anyhow::Result<()> {
     let img = open_img(cfg.source_file.as_str())?;
-    let mut bg_img = if cfg.white_bg {
+    let bg_img = if cfg.white_bg {
         DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
             cfg.size.width,
             cfg.size.height,
@@ -109,47 +109,47 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     let img = img.resize(width as u32, height as u32, FilterType::Nearest);
     let dist_v = (bg_img.height() - img.height()) / 2;
     let dist_h = (bg_img.width() - img.width()) / 2;
+
+    let mut bg_img = blur(cfg.size.blur_radius as f32, bg_img);
+    let mut img = DynamicImage::ImageRgba8(img.to_rgba8());
+    //let rounded = effects::round::Rounded::new(&img, cfg.size.round_radius);
+    // let (img, dx, dy) = shadow.apply(&rounded);
+    let draw_round_cost = Instant::now();
+    effects::round::apply(&mut img, cfg.size.round_radius);
+    log::info!(
+        "draw_round_cost: {}ms",
+        draw_round_cost.elapsed().as_millis()
+    );
+
     //  draw shadow
-    let darker = |p: Rgba<u8>| {
-        const D: u8 = 100;
-        let d = p.0.map(|v| if v < D { 0 } else { v - D });
-        Rgba(d)
-    };
-    // let shadow = effects::shadow::Builder::new()
-    //     .offset(50, 50)
-    //     .blur_radius(cfg.size.shadow)
-    //     .color([255, 255, 255, 200])
-    //     .build();
-    // let (img, dx, dy) = shadow.apply(&img);
-    let shadow = cfg.size.shadow;
+    let shadow = effects::shadow::Builder::new()
+        .offset(cfg.size.shadow_offset_x, cfg.size.shadow_offset_y)
+        .blur_radius(cfg.size.shadow)
+        .color([0, 0, 0, 200])
+        .build();
     let draw_shadow_cost = Instant::now();
-    for x in (dist_h - shadow)..(bg_img.width() - dist_h + shadow) {
-        for y in (dist_v - shadow)..(bg_img.height() - dist_v + shadow) {
-            let p = bg_img.get_pixel(x, y);
-            bg_img.put_pixel(x, y, darker(p));
-        }
-    }
+    let (img, dx, dy) = shadow.apply(&img);
     log::info!(
         "draw_shadow_cost: {}ms",
         draw_shadow_cost.elapsed().as_millis()
     );
 
-    let mut bg_img = blur(cfg.size.blur_radius as f32, bg_img);
-    let checker = effects::round::Checker {
-        width: img.width(),
-        height: img.height(),
-        radius: cfg.size.blur_radius,
-    };
     // draw main content
     for x in 0..img.width() {
         for y in 0..img.height() {
-            if !checker.contains(x, y) {
+            let f = img.get_pixel(x, y);
+            let x = x + dist_h;
+            let y = y + dist_v;
+            if x < dx || y < dy {
                 continue;
             }
-            let f = img.get_pixel(x, y);
-            let mut b = bg_img.get_pixel(x + dist_h, y + dist_v);
-            b.blend(&f);
-            bg_img.put_pixel(x + dist_h, y + dist_v, b);
+            let x = x - dx;
+            let y = y - dy;
+            if x < bg_img.width() && y < bg_img.height() {
+                let mut b = bg_img.get_pixel(x, y);
+                b.blend(f);
+                bg_img.put_pixel(x, y, b);
+            }
         }
     }
     if cfg.source_file == cfg.dest_file || cfg.dest_file.is_empty() {
@@ -172,7 +172,7 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
 mod tests {
     use std::time::Instant;
 
-    use image::{Pixel, RgbaImage};
+    use image::{Pixel, Rgba, RgbaImage};
 
     use super::*;
 
@@ -182,6 +182,7 @@ mod tests {
     }
     #[test]
     fn gogogo() {
+        let _ = env_logger::try_init();
         let s = Instant::now();
         let mut cfg = Config {
             source_file: "./hello.jpg".to_owned(),

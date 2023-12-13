@@ -60,7 +60,7 @@ impl Shadow {
     }
     /// 生成包含阴影的图层，以及原图偏移量（ (0,0)在此图层的位置）
     /// 详见 [When shadows are drawn](https://html.spec.whatwg.org/multipage/canvas.html#when-shadows-are-drawn)
-    pub fn gen_bg(&self, img: &DynamicImage) -> (RgbaImage, u32, u32) {
+    pub fn gen_bg<T: GenericImageView<Pixel = Rgba<u8>>>(&self, img: &T) -> (RgbaImage, u32, u32) {
         let get_size = |origin: i32, offset: i32, blur: i32| -> (u32, u32) {
             let s = origin.max(origin + offset + blur) - 0.min(offset - blur);
             let x = if offset < 0 {
@@ -120,7 +120,7 @@ impl Shadow {
     }
 
     /// 生成最终，以及原图偏移量（ (0,0)在此结果图中的位置）
-    pub fn apply(&self, img: &DynamicImage) -> (RgbaImage, u32, u32) {
+    pub fn apply<T: GenericImageView<Pixel = Rgba<u8>>>(&self, img: &T) -> (RgbaImage, u32, u32) {
         let (mut bg, dx, dy) = self.gen_bg(img);
         for x in 0..img.width() {
             for y in 0..img.height() {

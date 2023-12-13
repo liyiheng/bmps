@@ -15,6 +15,8 @@ pub struct Size {
     pub round_radius: u32,
     pub padding: f64,
     pub shadow: u32,
+    pub shadow_offset_x: i32,
+    pub shadow_offset_y: i32,
 }
 impl Default for Size {
     fn default() -> Self {
@@ -25,6 +27,8 @@ impl Default for Size {
             round_radius: 45,
             padding: 0.1,
             shadow: 40,
+            shadow_offset_x: 30,
+            shadow_offset_y: 30,
         }
     }
 }

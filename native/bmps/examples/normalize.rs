@@ -39,6 +39,16 @@ fn main() {
                 .value_parser(clap::value_parser!(u32)),
         )
         .arg(
+            arg!(-sox --shadow-offset-x [SHADOW_OFFSET_X] "Shadow offset x")
+                .default_value("30")
+                .value_parser(clap::value_parser!(i32)),
+        )
+        .arg(
+            arg!(-soy --shadow-offset-y [SHADOW_OFFSET_Y] "Shadow offset y")
+                .default_value("30")
+                .value_parser(clap::value_parser!(i32)),
+        )
+        .arg(
             arg!(-p --padding [PADDING] "Range [0, 0.5)")
                 .default_value("0.1")
                 .value_parser(clap::value_parser!(f64)),
@@ -56,6 +66,8 @@ fn main() {
             round_radius: get(&matches, "round"),
             padding: get(&matches, "padding"),
             shadow: get(&matches, "shadow"),
+            shadow_offset_x: get(&matches, "shadow-offset-x"),
+            shadow_offset_y: get(&matches, "shadow-offset-y"),
         },
         source_file: get(&matches, "input"),
         dest_file: get(&matches, "out"),
