@@ -2,6 +2,7 @@ pub use config::Config;
 use image::{imageops::FilterType, DynamicImage, GenericImage, GenericImageView, Rgba};
 use std::{path::Path, sync::OnceLock, time::Instant};
 
+pub mod box_shadow;
 pub mod config;
 pub use log;
 
@@ -214,6 +215,8 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     let dist_v = (bg_img.height() - img.height()) / 2;
     let dist_h = (bg_img.width() - img.width()) / 2;
     //  draw shadow
+    //  FIXME: https://html.spec.whatwg.org/multipage/canvas.html#when-shadows-are-drawn
+    //  FIXME: https://stackoverflow.com/questions/4151896/what-is-the-precise-explanation-of-box-shadow-and-moz-box-shadow-in-css
     let darker = |p: Rgba<u8>| {
         const D: u8 = 100;
         let d = p.0.map(|v| if v < D { 0 } else { v - D });
@@ -265,6 +268,8 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
 mod tests {
     use std::time::Instant;
 
+    use image::{Pixel, RgbaImage};
+
     use super::*;
 
     #[test]
@@ -286,5 +291,39 @@ mod tests {
         cfg.dest_file = "./output_l.jpg".to_owned();
         go(cfg).unwrap();
         log::info!("cost {}ms", s.elapsed().as_millis());
+    }
+
+    #[test]
+    fn shadow() {
+        let _ = env_logger::try_init();
+        let s = Instant::now();
+        let img = open_img("./hello.jpg").unwrap();
+        let img = img.resize_to_fill(1920, 1080, FilterType::Nearest);
+        let (bg, dx, dy) = box_shadow::EffectBuilder::new()
+            .color([100, 100, 100, 255])
+            .blur_radius(50)
+            .offset(100, 100)
+            .build()
+            .gen_bg(&img);
+        log::info!("cost {}ms, offset({dx},{dy})", s.elapsed().as_millis());
+        let mut res = RgbaImage::from_pixel(
+            bg.width() + 200,
+            bg.height() + 200,
+            Rgba([255, 255, 255, 255]),
+        );
+        for x in 0..bg.width() {
+            for y in 0..bg.height() {
+                let p1 = res.get_pixel_mut(x + 100, y + 100);
+                let p2 = bg.get_pixel(x, y);
+                p1.blend(p2);
+            }
+        }
+        for x in 0..img.width() {
+            for y in 0..img.height() {
+                let p = img.get_pixel(x, y);
+                res.put_pixel(x + 100 + dx, y + 100 + dy, p);
+            }
+        }
+        res.save("./output_shadow.png").unwrap();
     }
 }
