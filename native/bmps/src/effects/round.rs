@@ -9,8 +9,12 @@ pub struct Checker {
 }
 #[cfg(test)]
 mod test {
+    use image::GenericImageView;
+    use image::Pixel;
+
     use super::apply;
     use super::Checker;
+    use super::Rounded;
 
     #[test]
     fn round() {
@@ -19,8 +23,15 @@ mod test {
             img.resize_to_fill(1920, 1080, image::imageops::FilterType::Nearest)
                 .to_rgba8(),
         );
+        let mut tmp = image::RgbaImage::from_pixel(img.width(), img.height(), image::Rgba([0; 4]));
+        let r = Rounded::new(&img, 40);
+        tmp.enumerate_pixels_mut().for_each(|(x, y, p)| {
+            let v = r.get_pixel(x, y);
+            p.blend(&v);
+        });
         apply(&mut img, 40);
         img.save("output_round.png").unwrap();
+        tmp.save("output_round1.png").unwrap();
     }
     #[test]
     fn checker() {
@@ -29,8 +40,10 @@ mod test {
             height: 100,
             radius: 30,
         };
-        assert!(!c.contains(99, 99));
         assert!(!c.contains(0, 0));
+        assert!(!c.contains(8, 8));
+        assert!(!c.contains(99, 99));
+        assert!(!c.contains(93, 93));
         assert!(!c.contains(99, 0));
         assert!(!c.contains(0, 99));
         assert!(c.contains(50, 50));
