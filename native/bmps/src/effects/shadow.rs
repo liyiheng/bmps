@@ -1,7 +1,9 @@
 #![allow(unused)]
 use std::time::Instant;
 
-use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgb, RgbImage, Rgba, RgbaImage};
+use image::{
+    imageops, DynamicImage, GenericImage, GenericImageView, Pixel, Rgb, RgbImage, Rgba, RgbaImage,
+};
 
 // https://html.spec.whatwg.org/multipage/canvas.html#when-shadows-are-drawn
 // UNSURPPORTED spread_radius: i32,
@@ -86,23 +88,20 @@ impl Shadow {
         if self.nop() {
             return (b, combine_offset_x, combine_offset_y);
         }
-        for x in 0..img.width() {
-            for y in 0..img.height() {
-                let p = img.get_pixel(x, y);
-                let bx = if self.offset_x < 0 {
-                    x + combine_offset_x - (-self.offset_x as u32)
-                } else {
-                    x + combine_offset_x + (self.offset_x as u32)
-                };
-                let by = if self.offset_y < 0 {
-                    y + combine_offset_y - (-self.offset_y as u32)
-                } else {
-                    y + combine_offset_y + (self.offset_y as u32)
-                };
-                let tmp = b.get_pixel_mut(bx, by);
-                tmp.0[3] = p[3];
-            }
-        }
+        img.pixels().for_each(|(x, y, p)| {
+            let bx = if self.offset_x < 0 {
+                x + combine_offset_x - (-self.offset_x as u32)
+            } else {
+                x + combine_offset_x + (self.offset_x as u32)
+            };
+            let by = if self.offset_y < 0 {
+                y + combine_offset_y - (-self.offset_y as u32)
+            } else {
+                y + combine_offset_y + (self.offset_y as u32)
+            };
+            let tmp = b.get_pixel_mut(bx, by);
+            tmp.0[3] = p[3];
+        });
 
         let tt0 = Instant::now();
         let mut b = imageops::blur(&b, self.blur_radius as f32 / 2.0);
@@ -122,11 +121,9 @@ impl Shadow {
     /// 生成最终，以及原图偏移量（ (0,0)在此结果图中的位置）
     pub fn apply<T: GenericImageView<Pixel = Rgba<u8>>>(&self, img: &T) -> (RgbaImage, u32, u32) {
         let (mut bg, dx, dy) = self.gen_bg(img);
-        for x in 0..img.width() {
-            for y in 0..img.height() {
-                bg.get_pixel_mut(x + dx, y + dy).blend(&img.get_pixel(x, y));
-            }
-        }
+        img.pixels().for_each(|(x, y, p)| {
+            bg.get_pixel_mut(x + dx, y + dy).blend(&p);
+        });
         (bg, dx, dy)
     }
 }

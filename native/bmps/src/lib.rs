@@ -98,7 +98,7 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
         DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
             cfg.size.width,
             cfg.size.height,
-            image::Rgb([255, 255, 255]),
+            image::Rgb([255; 3]),
         ))
     } else {
         img.resize_to_fill(cfg.size.width, cfg.size.height, FilterType::Nearest)
@@ -111,10 +111,10 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     let dist_h = (bg_img.width() - img.width()) / 2;
 
     let mut bg_img = blur(cfg.size.blur_radius as f32, bg_img);
-    let mut img = DynamicImage::ImageRgba8(img.to_rgba8());
-    //let rounded = effects::round::Rounded::new(&img, cfg.size.round_radius);
-    // let (img, dx, dy) = shadow.apply(&rounded);
     let draw_round_cost = Instant::now();
+    let mut img = DynamicImage::ImageRgba8(img.to_rgba8());
+    // let rounded = effects::round::Rounded::new(&img, cfg.size.round_radius);
+    // let (img, dx, dy) = shadow.apply(&rounded);
     effects::round::apply(&mut img, cfg.size.round_radius);
     log::info!(
         "draw_round_cost: {}ms",
@@ -133,25 +133,21 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
         "draw_shadow_cost: {}ms",
         draw_shadow_cost.elapsed().as_millis()
     );
-
-    // draw main content
-    for x in 0..img.width() {
-        for y in 0..img.height() {
-            let f = img.get_pixel(x, y);
-            let x = x + dist_h;
-            let y = y + dist_v;
-            if x < dx || y < dy {
-                continue;
-            }
-            let x = x - dx;
-            let y = y - dy;
-            if x < bg_img.width() && y < bg_img.height() {
-                let mut b = bg_img.get_pixel(x, y);
-                b.blend(f);
-                bg_img.put_pixel(x, y, b);
-            }
+    // draw shadowed content to background
+    img.enumerate_pixels().for_each(|(x, y, f)| {
+        let x = x + dist_h;
+        let y = y + dist_v;
+        if x < dx || y < dy {
+            return;
         }
-    }
+        let x = x - dx;
+        let y = y - dy;
+        if x < bg_img.width() && y < bg_img.height() {
+            let mut b = bg_img.get_pixel(x, y);
+            b.blend(f);
+            bg_img.put_pixel(x, y, b);
+        }
+    });
     if cfg.source_file == cfg.dest_file || cfg.dest_file.is_empty() {
         let mut pb = std::path::PathBuf::from(cfg.source_file.as_str());
         let name = format!(

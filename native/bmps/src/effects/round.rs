@@ -10,6 +10,7 @@ pub struct Checker {
 #[cfg(test)]
 mod test {
     use super::apply;
+    use super::Checker;
 
     #[test]
     fn round() {
@@ -20,6 +21,19 @@ mod test {
         );
         apply(&mut img, 40);
         img.save("output_round.png").unwrap();
+    }
+    #[test]
+    fn checker() {
+        let c = Checker {
+            width: 100,
+            height: 100,
+            radius: 30,
+        };
+        assert!(!c.contains(99, 99));
+        assert!(!c.contains(0, 0));
+        assert!(!c.contains(99, 0));
+        assert!(!c.contains(0, 99));
+        assert!(c.contains(50, 50));
     }
 }
 pub fn apply(img: &mut image::DynamicImage, radius: u32) {
