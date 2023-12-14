@@ -111,15 +111,7 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
     let dist_h = (bg_img.width() - img.width()) / 2;
 
     let mut bg_img = blur(cfg.size.blur_radius as f32, bg_img);
-    let draw_round_cost = Instant::now();
-    let mut img = DynamicImage::ImageRgba8(img.to_rgba8());
-    // let rounded = effects::round::Rounded::new(&img, cfg.size.round_radius);
-    // let (img, dx, dy) = shadow.apply(&rounded);
-    effects::round::apply(&mut img, cfg.size.round_radius);
-    log::info!(
-        "draw_round_cost: {}ms",
-        draw_round_cost.elapsed().as_millis()
-    );
+    let rounded = effects::round::Rounded::new(&img, cfg.size.round_radius);
 
     //  draw shadow
     let shadow = effects::shadow::Builder::new()
@@ -128,7 +120,7 @@ pub fn go(cfg: Config) -> anyhow::Result<()> {
         .color([0, 0, 0, 200])
         .build();
     let draw_shadow_cost = Instant::now();
-    let (img, dx, dy) = shadow.apply(&img);
+    let (img, dx, dy) = shadow.apply(&rounded);
     log::info!(
         "draw_shadow_cost: {}ms",
         draw_shadow_cost.elapsed().as_millis()

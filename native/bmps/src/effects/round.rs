@@ -100,7 +100,7 @@ impl<'a> Rounded<'a> {
             origin: img,
             checker: Checker {
                 width: img.width(),
-                height: img.width(),
+                height: img.height(),
                 radius,
             },
         }
