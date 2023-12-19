@@ -6,6 +6,8 @@ Big musules, passionate shots
 
 ## CLI version
 
+[Native crate](./native/bmps)
+
 ```
 cd native/bmps
 cargo run --example normalize -- -h

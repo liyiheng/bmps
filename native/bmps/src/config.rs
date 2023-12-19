@@ -1,3 +1,5 @@
+use std::ops::Rem;
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub source_file: String,
@@ -41,6 +43,40 @@ impl Default for Size {
             shadow: 40,
             shadow_offset_x: 30,
             shadow_offset_y: 30,
+        }
+    }
+}
+fn calc_gcd<T>(mut n: T, mut m: T) -> T
+where
+    T: Rem<Output = T> + Default + PartialEq + Copy,
+{
+    let zero = T::default();
+    while n != zero {
+        let r = m % n;
+        m = n;
+        n = r;
+    }
+    m
+}
+impl Size {
+    pub(crate) fn calc_bg(&self, width: u32, height: u32) -> (u32, u32) {
+        if !self.aspect_ratio {
+            return (self.width, self.height);
+        }
+        let g = calc_gcd(self.width, self.height);
+        // 约分背景宽高比
+        let bg_width = self.width / g;
+        let bg_height = self.height / g;
+        // 约分原图宽高比
+        let g = calc_gcd(width, height);
+        let w = width / g;
+        let h = height / g;
+        if bg_width * h >= w * bg_height {
+            let res_h = (height as f64 / (1.0 - self.padding * 2.0)) as u32;
+            (bg_width * res_h / bg_height, res_h)
+        } else {
+            let res_w = (width as f64 / (1.0 - self.padding * 2.0)) as u32;
+            (res_w, bg_height * res_w / bg_width)
         }
     }
 }

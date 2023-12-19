@@ -59,7 +59,7 @@ fn main() {
         .arg(arg!(-o --out [OUTPUT] "Output path").default_value("."))
         .arg(arg!(-W --"white-bg"  "White background").value_parser(clap::value_parser!(bool)))
         .arg(
-            arg!(--aspectratio  "If width and height stand for aspect ratio")
+            arg!(--"aspect-ratio"  "If width and height stand for aspect ratio")
                 .value_parser(clap::value_parser!(bool)),
         )
         .get_matches();
@@ -73,8 +73,8 @@ fn main() {
             round_radius: get(&matches, "round"),
             padding: get(&matches, "padding"),
             shadow: get(&matches, "shadow"),
-            shadow_offset_x: get(&matches, "shadow-offset-x"),
-            shadow_offset_y: get(&matches, "shadow-offset-y"),
+            shadow_offset_x: get(&matches, "SHADOW_OFFSET_X"),
+            shadow_offset_y: get(&matches, "SHADOW_OFFSET_Y"),
         },
         source_file: get(&matches, "input"),
         dest_file: get(&matches, "out"),

@@ -93,20 +93,23 @@ fn open_img<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<DynamicImage> 
 }
 
 pub fn go(cfg: Config) -> anyhow::Result<()> {
-    let img = open_img(cfg.source_file.as_str())?;
+    let mut img = open_img(cfg.source_file.as_str())?;
+    let (bg_width, bg_height) = cfg.size.calc_bg(img.width(), img.height());
     let bg_img = if cfg.white_bg {
         DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
-            cfg.size.width,
-            cfg.size.height,
+            bg_width,
+            bg_height,
             image::Rgb([255; 3]),
         ))
     } else {
-        img.resize_to_fill(cfg.size.width, cfg.size.height, FilterType::Nearest)
+        img.resize_to_fill(bg_width, bg_height, FilterType::Nearest)
     };
-    let r = 1.0 - cfg.size.padding * 2.0;
-    let width = bg_img.width() as f64 * r;
-    let height = bg_img.height() as f64 * r;
-    let img = img.resize(width as u32, height as u32, FilterType::Nearest);
+    if !cfg.size.aspect_ratio {
+        let r = 1.0 - cfg.size.padding * 2.0;
+        let width = bg_img.width() as f64 * r;
+        let height = bg_img.height() as f64 * r;
+        img = img.resize(width as u32, height as u32, FilterType::Nearest);
+    }
     let dist_v = (bg_img.height() - img.height()) / 2;
     let dist_h = (bg_img.width() - img.width()) / 2;
 
