@@ -39,12 +39,14 @@ fn main() {
                 .value_parser(clap::value_parser!(u32)),
         )
         .arg(
-            arg!(-sox --shadow-offset-x [SHADOW_OFFSET_X] "Shadow offset x")
+            clap::Arg::new("SHADOW_OFFSET_X")
+                .long("shadow-offset-x")
                 .default_value("30")
                 .value_parser(clap::value_parser!(i32)),
         )
         .arg(
-            arg!(-soy --shadow-offset-y [SHADOW_OFFSET_Y] "Shadow offset y")
+            clap::Arg::new("SHADOW_OFFSET_Y")
+                .long("shadow-offset-y")
                 .default_value("30")
                 .value_parser(clap::value_parser!(i32)),
         )
@@ -55,13 +57,18 @@ fn main() {
         )
         .arg(arg!(-i --input [INPUT_PATH] "File or directory path").default_value("."))
         .arg(arg!(-o --out [OUTPUT] "Output path").default_value("."))
-        .arg(arg!(-W --white  "White background").value_parser(clap::value_parser!(bool)))
+        .arg(arg!(-W --"white-bg"  "White background").value_parser(clap::value_parser!(bool)))
+        .arg(
+            arg!(--aspectratio  "If width and height stand for aspect ratio")
+                .value_parser(clap::value_parser!(bool)),
+        )
         .get_matches();
     let cfg = Config {
         font: None,
         size: Size {
             width: get(&matches, "width"),
             height: get(&matches, "height"),
+            aspect_ratio: get(&matches, "aspect-ratio"),
             blur_radius: get(&matches, "blur"),
             round_radius: get(&matches, "round"),
             padding: get(&matches, "padding"),
@@ -71,7 +78,7 @@ fn main() {
         },
         source_file: get(&matches, "input"),
         dest_file: get(&matches, "out"),
-        white_bg: get(&matches, "white"),
+        white_bg: get(&matches, "white-bg"),
     };
     if is_dir(cfg.source_file.as_str()) {
         batch(&cfg);
