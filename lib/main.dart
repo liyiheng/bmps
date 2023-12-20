@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:bmps/messages/bg.pb.dart' as bg;
 import 'package:flutter/material.dart';
@@ -70,7 +69,6 @@ typedef OnPickImageCallback = void Function(
 
 class _MyHomePageState extends ConsumerState<MyHomePage> {
   final ImagePicker _picker = ImagePicker();
-  String _destPath = '';
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +82,14 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: <Widget>[
+          if (originPath.isNotEmpty) ...[
+            Expanded(
+              child: Image.file(
+                File(originPath),
+                fit: BoxFit.scaleDown,
+              ),
+            ),
+          ],
           ResultImage(),
           ListTile(
             title: const Text('横屏'),
@@ -126,30 +132,6 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
             child: const Icon(Icons.photo),
           ),
           Text(originPath),
-          if (originPath.isNotEmpty) ...[
-            SizedBox(
-              height: 100,
-              child: FractionallySizedBox(
-                heightFactor: 0.3,
-                widthFactor: 1,
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(54),
-                        child: Image.file(
-                          File(originPath),
-                          fit: BoxFit.scaleDown,
-                          height: 300,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
           ElevatedButton(
               onPressed: () async {
                 if (originPath.isEmpty) {
@@ -181,20 +163,10 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                 var resp = bg.GenResponse.fromBuffer(rresp.message!);
                 print(resp);
                 if (resp.code == 0) {
-                  setState(() {
-                    _destPath = dest;
-                  });
+                  ref.read(destPathProvider).set(dest);
                 }
               },
               child: Text("生成")),
-          if (_destPath.isNotEmpty) ...[
-            Expanded(
-              child: Image.file(
-                File(_destPath),
-                fit: BoxFit.scaleDown,
-              ),
-            ),
-          ]
         ],
       ),
     );
@@ -209,44 +181,16 @@ class ResultImage extends ConsumerStatefulWidget {
 }
 
 class ResultImageState extends ConsumerState {
-  double blurRadius = 5.0;
-
   @override
   Widget build(BuildContext context) {
-    var originPath = ref.watch(originPathProvider).val;
-    if (originPath.isEmpty) {
+    var destPath = ref.watch(destPathProvider).val;
+    if (destPath.isEmpty) {
       return Container(
         height: 200,
         color: Colors.grey,
       );
     }
-    return Column(
-      children: [
-        SizedBox(
-          height: 200,
-          child: ImageFiltered(
-            imageFilter: ImageFilter.blur(
-                sigmaX: blurRadius,
-                sigmaY: blurRadius,
-                tileMode: TileMode.decal),
-            child: Image.file(
-              File(originPath),
-              fit: BoxFit.cover,
-              height: 200,
-            ),
-          ),
-        ),
-        Slider(
-          value: blurRadius,
-          onChanged: (v) {
-            setState(() {
-              blurRadius = v;
-            });
-          },
-          max: 100,
-        )
-      ],
-    );
+    return Image.file(File(destPath), fit: BoxFit.cover, height: 200);
   }
 }
 // padding 0.15
