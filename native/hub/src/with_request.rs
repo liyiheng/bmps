@@ -43,7 +43,9 @@ pub async fn handle_request(request_unique: RustRequestUnique) -> RustResponseUn
 }
 
 async fn handel_gen(req: messages::bg::GenRequest) -> messages::bg::GenResponse {
+    let dft = bmps::config::Size::default();
     let cfg = bmps::Config {
+        white_bg: false,
         size: bmps::config::Size {
             width: req.width,
             height: req.height,
@@ -51,6 +53,8 @@ async fn handel_gen(req: messages::bg::GenRequest) -> messages::bg::GenResponse 
             shadow: req.shadow,
             round_radius: req.round_radius,
             padding: req.padding,
+            aspect_ratio: false,
+            ..dft
         },
         source_file: req.source,
         dest_file: req.dest,

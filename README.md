@@ -4,6 +4,7 @@ Heavily inspired by [yiyin](https://github.com/ggchivalrous/yiyin)
 
 Big musules, passionate shots
 
+
 ## CLI version
 
 [Native crate](./native/bmps)
@@ -12,6 +13,9 @@ Big musules, passionate shots
 cd native/bmps
 cargo run --example normalize -- -h
 ```
+
+## GUI demo
+<img src="./screenshot.jpg" width = "180" height = "386" alt="Screenshot" align=center />
 
 ## Getting Started
 
