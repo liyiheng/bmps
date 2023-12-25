@@ -18,7 +18,7 @@ fn blur(radius: f32, img: DynamicImage) -> DynamicImage {
     let w = img.width();
     let h = img.height();
     let mut data: Vec<[u8; 3]> = img.clone().into_rgb8().pixels().map(|p| p.0).collect();
-    fastblur::gaussian_blur(&mut data, w as usize, h as usize, radius);
+    blurslice::gaussian_blur(&mut data, w as usize, h as usize, radius);
     let i = image::RgbImage::from_raw(w, h, data.into_iter().flatten().collect()).unwrap();
     log::info!("blur cost: {}ms", s.elapsed().as_millis());
     DynamicImage::ImageRgb8(i)

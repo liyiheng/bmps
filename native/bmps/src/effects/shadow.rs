@@ -104,7 +104,18 @@ impl Shadow {
         });
 
         let tt0 = Instant::now();
-        let mut b = imageops::blur(&b, self.blur_radius as f32 / 2.0);
+        let mut raw: Vec<_> = b.pixels().map(|p| p.0).collect();
+        blurslice::gaussian_blur(
+            &mut raw,
+            b.width() as usize,
+            b.height() as usize,
+            self.blur_radius as f32 / 2.0,
+        );
+        b.pixels_mut().zip(raw).for_each(|(p, v)| {
+            p.0 = v;
+        });
+        // https://github.com/image-rs/image/issues/986
+        // let mut b = imageops::blur(&b, self.blur_radius as f32 / 2.0);
         log::info!("imageops::blur cost {}ms", tt0.elapsed().as_millis());
         let alpha = self.color[3] as f64 / 255.0;
         let full = self.color[3] == 255;
