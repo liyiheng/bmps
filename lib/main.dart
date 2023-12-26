@@ -117,58 +117,71 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
               },
             ),
           ),
-          FloatingActionButton(
-            onPressed: () async {
-              XFile? file = await _picker.pickImage(
-                  source: ImageSource.gallery, maxHeight: 1000, maxWidth: 1000);
-              print(file);
-              if (file == null) {
-                return;
-              }
-              ref.read(originPathProvider).set(file.path);
-            },
-            heroTag: 'image0',
-            tooltip: 'Pick Image from gallery',
-            child: const Icon(Icons.photo),
-          ),
-          Text(originPath),
-          ElevatedButton(
-              onPressed: () async {
-                if (originPath.isEmpty) {
-                  print('path is empty, skip');
-                  return;
-                }
-                var (width, height) = (1920, 1080);
-                if (ref.read(orientationProvider).val == Orientation.portrait) {
-                  (width, height) = (height, width);
-                }
-                print('width: $width, height:$height');
-                var fname = path.basename(originPath);
-                var dir = path.dirname(originPath);
-                var dest = path.join(dir, 'bmps_$fname');
-                var req = bg.GenRequest(
-                    source: originPath,
-                    dest: dest,
-                    width: width,
-                    height: height,
-                    blurRadius: 50,
-                    roundRadius: 30,
-                    shadow: 30,
-                    padding: 0.1);
-                var rreq = RustRequest(
-                    resource: bg.ID,
-                    operation: RustOperation.Read,
-                    message: req.writeToBuffer());
-                final rresp = await requestToRust(rreq);
-                var resp = bg.GenResponse.fromBuffer(rresp.message!);
-                print(resp);
-                if (resp.code == 0) {
-                  ref.read(destPathProvider).set(dest);
-                }
-              },
-              child: Text("生成")),
+          Buttons(picker: _picker),
         ],
       ),
+    );
+  }
+}
+
+class Buttons extends ConsumerWidget {
+  ImagePicker picker;
+  Buttons({super.key, required this.picker});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Row(children: [
+        FloatingActionButton(
+          onPressed: () async {
+            XFile? file = await picker.pickImage(
+                source: ImageSource.gallery, maxHeight: 1000, maxWidth: 1000);
+            print(file);
+            if (file == null) {
+              return;
+            }
+            ref.read(originPathProvider).set(file.path);
+          },
+          heroTag: 'image0',
+          tooltip: 'Pick Image from gallery',
+          child: const Icon(Icons.photo),
+        ),
+        ElevatedButton(
+            onPressed: () async {
+              var originPath = ref.read(originPathProvider).val;
+              if (originPath.isEmpty) {
+                print('path is empty, skip');
+                return;
+              }
+              var (width, height) = (1920, 1080);
+              if (ref.read(orientationProvider).val == Orientation.portrait) {
+                (width, height) = (height, width);
+              }
+              print('width: $width, height:$height');
+              var fname = path.basename(originPath);
+              var dir = path.dirname(originPath);
+              var dest = path.join(dir, 'bmps_$fname');
+              var req = bg.GenRequest(
+                  source: originPath,
+                  dest: dest,
+                  width: width,
+                  height: height,
+                  blurRadius: 50,
+                  roundRadius: 30,
+                  shadow: 30,
+                  padding: 0.1);
+              var rreq = RustRequest(
+                  resource: bg.ID,
+                  operation: RustOperation.Read,
+                  message: req.writeToBuffer());
+              final rresp = await requestToRust(rreq);
+              var resp = bg.GenResponse.fromBuffer(rresp.message!);
+              print(resp);
+              if (resp.code == 0) {
+                ref.read(destPathProvider).set(dest);
+              }
+            },
+            child: const Text("生成")),
+      ]),
     );
   }
 }
